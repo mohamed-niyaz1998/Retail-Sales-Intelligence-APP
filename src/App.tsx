@@ -24,7 +24,7 @@ export default function App() {
   // State variables
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([]);
   const [loadedFiles, setLoadedFiles] = useState<{ name: string; size: string; rows: number; rawJson: any[] }[]>([]);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   
   // Header detection & column mapping states
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
@@ -80,9 +80,9 @@ export default function App() {
 
   // Load Initial Mock Data
   useEffect(() => {
-    const demoData = getMockSalesData();
-    setSalesRecords(demoData);
-    setIsDemoMode(true);
+    // Keep initially empty per privacy guidelines. User can trigger sandbox/demo mode manually or upload files.
+    setSalesRecords([]);
+    setIsDemoMode(false);
   }, []);
 
   // Update sales target automatically when dataset changes
@@ -903,126 +903,128 @@ export default function App() {
             </div>
 
             {/* Business Summary Tab and Dropdown */}
-            <div className="relative">
-              <button
-                id="business-summary-tab"
-                onClick={() => setShowBusinessSummary(!showBusinessSummary)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-all cursor-pointer shadow-sm select-none"
-              >
-                <Award className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Business Summary</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showBusinessSummary ? "rotate-180" : ""}`} />
-              </button>
+            {salesRecords.length > 0 && (
+              <div className="relative">
+                <button
+                  id="business-summary-tab"
+                  onClick={() => setShowBusinessSummary(!showBusinessSummary)}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-all cursor-pointer shadow-sm select-none"
+                >
+                  <Award className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Business Summary</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showBusinessSummary ? "rotate-180" : ""}`} />
+                </button>
 
-              {showBusinessSummary && (
-                <>
-                  {/* Backdrop to close */}
-                  <div className="fixed inset-0 z-40" onClick={() => setShowBusinessSummary(false)} />
-                  <div className="absolute left-0 mt-2 w-80 sm:w-96 bg-[#11141b] border border-slate-800 rounded-xl shadow-2xl shadow-black/95 z-50 p-4 font-sans text-xs divide-y divide-slate-800/60 max-h-[80vh] overflow-y-auto">
-                    
-                    {/* Header */}
-                    <div className="pb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Award className="w-4 h-4 text-amber-400 animate-bounce" />
-                        <span className="font-bold text-white text-xs sm:text-sm">Strategic Business Summary</span>
+                {showBusinessSummary && (
+                  <>
+                    {/* Backdrop to close */}
+                    <div className="fixed inset-0 z-40" onClick={() => setShowBusinessSummary(false)} />
+                    <div className="absolute left-0 mt-2 w-80 sm:w-96 bg-[#11141b] border border-slate-800 rounded-xl shadow-2xl shadow-black/95 z-50 p-4 font-sans text-xs divide-y divide-slate-800/60 max-h-[80vh] overflow-y-auto">
+                      
+                      {/* Header */}
+                      <div className="pb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-4 h-4 text-amber-400 animate-bounce" />
+                          <span className="font-bold text-white text-xs sm:text-sm">Strategic Business Summary</span>
+                        </div>
+                        <span className="text-[9px] text-slate-500 bg-slate-800/60 px-2 py-0.5 rounded font-mono uppercase">Live Data</span>
                       </div>
-                      <span className="text-[9px] text-slate-500 bg-slate-800/60 px-2 py-0.5 rounded font-mono uppercase">Live Data</span>
-                    </div>
 
-                    {/* Section 1: Worst and Best Regions as per sales */}
-                    <div className="py-3.5">
-                      <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-indigo-400" />
-                        Region Performance (by Net Sales)
-                      </h4>
-                      {(() => {
-                        const { best, worst } = getRegionsPerformance();
-                        return (
-                          <div className="grid grid-cols-2 gap-2 mt-1">
-                            <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                              <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Best Region</span>
-                              <span className="font-bold text-emerald-400 text-xs block truncate" title={best.name}>{best.name}</span>
-                              <span className="font-semibold text-slate-300 text-[10px]">${best.value.toLocaleString()}</span>
-                            </div>
-                            <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-                              <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Worst Region</span>
-                              <span className="font-bold text-rose-400 text-xs block truncate" title={worst.name}>{worst.name}</span>
-                              <span className="font-semibold text-slate-300 text-[10px]">${worst.value.toLocaleString()}</span>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Section 2: High returns categories */}
-                    <div className="py-3.5">
-                      <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                        High Return Categories (Top Returns)
-                      </h4>
-                      {(() => {
-                        const categories = getHighReturnsCategories();
-                        if (categories.length === 0) {
-                          return <div className="text-slate-500 italic p-1">No returns reported.</div>;
-                        }
-                        return (
-                          <div className="space-y-1.5 mt-1">
-                            {categories.map((c, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[#0c0e12] hover:bg-[#161a23] border border-slate-800/80 transition-colors">
-                                <span className="font-medium text-slate-300 truncate max-w-[140px]">{c.category}</span>
-                                <div className="text-right">
-                                  <div className="font-semibold text-amber-400">${c.returns.toLocaleString()}</div>
-                                  <div className="text-[10px] text-slate-500">{c.rate}% return rate</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Section 3: Stores missing targets */}
-                    <div className="pt-3.5">
-                      <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
-                        <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-                        Stores Missing Targets (Target: ${Math.max(5000, Math.round(salesTarget / (uniqueStores.filter(s => s !== "All").length || 1))).toLocaleString()})
-                      </h4>
-                      {(() => {
-                        const stores = getStoresMissingTargets();
-                        if (stores.length === 0) {
+                      {/* Section 1: Worst and Best Regions as per sales */}
+                      <div className="py-3.5">
+                        <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                          Region Performance (by Net Sales)
+                        </h4>
+                        {(() => {
+                          const { best, worst } = getRegionsPerformance();
                           return (
-                            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 mt-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span className="font-semibold">All stores hit their performance targets!</span>
+                            <div className="grid grid-cols-2 gap-2 mt-1">
+                              <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                                <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Best Region</span>
+                                <span className="font-bold text-emerald-400 text-xs block truncate" title={best.name}>{best.name}</span>
+                                <span className="font-semibold text-slate-300 text-[10px]">${best.value.toLocaleString()}</span>
+                              </div>
+                              <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+                                <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider mb-0.5">Worst Region</span>
+                                <span className="font-bold text-rose-400 text-xs block truncate" title={worst.name}>{worst.name}</span>
+                                <span className="font-semibold text-slate-300 text-[10px]">${worst.value.toLocaleString()}</span>
+                              </div>
                             </div>
                           );
-                        }
-                        return (
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-1">
-                            {stores.map((s, idx) => (
-                              <div key={idx} className="p-2 rounded-lg bg-[#0c0e12] border border-slate-800/80 space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <span className="font-bold text-slate-300 truncate max-w-[140px]">{s.store}</span>
-                                  <span className="font-semibold text-rose-400">-${s.missingAmount.toLocaleString()}</span>
-                                </div>
-                                <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                                  <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, s.percentage)}%` }} />
-                                </div>
-                                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                  <span>Achieved: {s.percentage}%</span>
-                                  <span>Sales: ${s.sales.toLocaleString()}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
+                        })()}
+                      </div>
 
-                  </div>
-                </>
-              )}
-            </div>
+                      {/* Section 2: High returns categories */}
+                      <div className="py-3.5">
+                        <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                          <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                          High Return Categories (Top Returns)
+                        </h4>
+                        {(() => {
+                          const categories = getHighReturnsCategories();
+                          if (categories.length === 0) {
+                            return <div className="text-slate-500 italic p-1">No returns reported.</div>;
+                          }
+                          return (
+                            <div className="space-y-1.5 mt-1">
+                              {categories.map((c, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[#0c0e12] hover:bg-[#161a23] border border-slate-800/80 transition-colors">
+                                  <span className="font-medium text-slate-300 truncate max-w-[140px]">{c.category}</span>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-amber-400">${c.returns.toLocaleString()}</div>
+                                    <div className="text-[10px] text-slate-500">{c.rate}% return rate</div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Section 3: Stores missing targets */}
+                      <div className="pt-3.5">
+                        <h4 className="font-bold text-slate-300 mb-2 flex items-center gap-1.5">
+                          <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
+                          Stores Missing Targets (Target: ${Math.max(5000, Math.round(salesTarget / (uniqueStores.filter(s => s !== "All").length || 1))).toLocaleString()})
+                        </h4>
+                        {(() => {
+                          const stores = getStoresMissingTargets();
+                          if (stores.length === 0) {
+                            return (
+                              <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 mt-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span className="font-semibold">All stores hit their performance targets!</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-1">
+                              {stores.map((s, idx) => (
+                                <div key={idx} className="p-2 rounded-lg bg-[#0c0e12] border border-slate-800/80 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-slate-300 truncate max-w-[140px]">{s.store}</span>
+                                    <span className="font-semibold text-rose-400">-${s.missingAmount.toLocaleString()}</span>
+                                  </div>
+                                  <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-rose-500 h-1.5 rounded-full" style={{ width: `${Math.min(100, s.percentage)}%` }} />
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] text-slate-500">
+                                    <span>Achieved: {s.percentage}%</span>
+                                    <span>Sales: ${s.sales.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
@@ -1052,177 +1054,179 @@ export default function App() {
       </header>
 
       {/* Global Dashboard Filters - Bento Layout */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <div className="bg-[#161a23] rounded-2xl border border-slate-800 p-5 shadow-xl">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800/60">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                <Sliders className="w-4 h-4" />
+      {salesRecords.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <div className="bg-[#161a23] rounded-2xl border border-slate-800 p-5 shadow-xl">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-3 border-b border-slate-800/60">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Sliders className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest">Dashboard Filtration Hub</h2>
+                  <p className="text-[10px] text-slate-500 font-medium">Refine metrics, Swot report, and visual chart channels in real-time</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest">Dashboard Filtration Hub</h2>
-                <p className="text-[10px] text-slate-500 font-medium">Refine metrics, Swot report, and visual chart channels in real-time</p>
+              
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedWeek("All");
+                    setSelectedRegion("All");
+                    setSelectedCity("All");
+                    setSelectedStore("All");
+                    setSelectedStoreFormat("All");
+                    setSelectedCategory("All");
+
+                    setTempRegion("All");
+                    setTempCity("All");
+                    setTempStore("All");
+                    setTempStoreFormat("All");
+                    setTempCategory("All");
+                    setCurrentPage(1);
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold border border-slate-700"
+                >
+                  Reset Filters
+                </button>
               </div>
             </div>
-            
-            <div className="flex flex-wrap items-center gap-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+              {/* Date Filter (Instant dropdown selection in descending order) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                  <span>Date (Instant)</span>
+                  <span className="text-[8px] px-1 bg-indigo-500/15 rounded text-indigo-300">Auto</span>
+                </label>
+                <select
+                  value={selectedWeek}
+                  onChange={(e) => {
+                    setSelectedWeek(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Dates ({uniqueWeeks.length - 1})</option>
+                  {uniqueWeeks.filter(w => w !== "All").map((wk) => (
+                    <option key={wk} value={wk}>{wk}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Region Filter (Draft) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Region</label>
+                <select
+                  value={tempRegion}
+                  onChange={(e) => setTempRegion(e.target.value)}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Regions</option>
+                  {uniqueRegions.filter(r => r !== "All").map((reg) => (
+                    <option key={reg} value={reg}>{reg}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City Filter (Draft) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">City</label>
+                <select
+                  value={tempCity}
+                  onChange={(e) => setTempCity(e.target.value)}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Cities</option>
+                  {uniqueCities.filter(c => c !== "All").map((ct) => (
+                    <option key={ct} value={ct}>{ct}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Store Filter (Draft) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store</label>
+                <select
+                  value={tempStore}
+                  onChange={(e) => setTempStore(e.target.value)}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Stores</option>
+                  {uniqueStores.filter(s => s !== "All").map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Store Format Filter (Draft) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Format</label>
+                <select
+                  value={tempStoreFormat}
+                  onChange={(e) => setTempStoreFormat(e.target.value)}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Formats</option>
+                  {uniqueStoreFormats.filter(sf => sf !== "All").map((fmt) => (
+                    <option key={fmt} value={fmt}>{fmt}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Product Category Filter (Draft) */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Category</label>
+                <select
+                  value={tempCategory}
+                  onChange={(e) => setTempCategory(e.target.value)}
+                  className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="All">All Categories</option>
+                  {uniqueCategories.filter(cat => cat !== "All").map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+                <span className="font-semibold">Active Filter Bounds:</span>
+                <span className="bg-[#11141b] px-2 py-0.5 rounded border border-slate-800 text-slate-300">
+                  Date: {selectedWeek}
+                </span>
+                {(selectedRegion !== "All" || selectedCity !== "All" || selectedStore !== "All" || selectedStoreFormat !== "All" || selectedCategory !== "All") ? (
+                  <>
+                    {selectedRegion !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Reg: {selectedRegion}</span>}
+                    {selectedCity !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">City: {selectedCity}</span>}
+                    {selectedStore !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Store: {selectedStore}</span>}
+                    {selectedStoreFormat !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Fmt: {selectedStoreFormat}</span>}
+                    {selectedCategory !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Cat: {selectedCategory}</span>}
+                  </>
+                ) : (
+                  <span className="text-slate-500 italic">No static dimensions active. Showing overall records.</span>
+                )}
+              </div>
+
               <button
                 onClick={() => {
-                  setSelectedWeek("All");
-                  setSelectedRegion("All");
-                  setSelectedCity("All");
-                  setSelectedStore("All");
-                  setSelectedStoreFormat("All");
-                  setSelectedCategory("All");
-
-                  setTempRegion("All");
-                  setTempCity("All");
-                  setTempStore("All");
-                  setTempStoreFormat("All");
-                  setTempCategory("All");
+                  setSelectedRegion(tempRegion);
+                  setSelectedCity(tempCity);
+                  setSelectedStore(tempStore);
+                  setSelectedStoreFormat(tempStoreFormat);
+                  setSelectedCategory(tempCategory);
                   setCurrentPage(1);
                 }}
-                className="text-[10px] text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-md transition-all cursor-pointer font-semibold border border-slate-700"
+                className="flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-lg shadow-indigo-950/20 transition-all border border-indigo-500/20 uppercase tracking-wider"
               >
-                Reset Filters
+                <Check className="w-3.5 h-3.5" />
+                Apply Filters
               </button>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-            {/* Date Filter (Instant dropdown selection in descending order) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-                <span>Date (Instant)</span>
-                <span className="text-[8px] px-1 bg-indigo-500/15 rounded text-indigo-300">Auto</span>
-              </label>
-              <select
-                value={selectedWeek}
-                onChange={(e) => {
-                  setSelectedWeek(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Dates ({uniqueWeeks.length - 1})</option>
-                {uniqueWeeks.filter(w => w !== "All").map((wk) => (
-                  <option key={wk} value={wk}>{wk}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Region Filter (Draft) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Region</label>
-              <select
-                value={tempRegion}
-                onChange={(e) => setTempRegion(e.target.value)}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Regions</option>
-                {uniqueRegions.filter(r => r !== "All").map((reg) => (
-                  <option key={reg} value={reg}>{reg}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* City Filter (Draft) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">City</label>
-              <select
-                value={tempCity}
-                onChange={(e) => setTempCity(e.target.value)}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Cities</option>
-                {uniqueCities.filter(c => c !== "All").map((ct) => (
-                  <option key={ct} value={ct}>{ct}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Store Filter (Draft) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store</label>
-              <select
-                value={tempStore}
-                onChange={(e) => setTempStore(e.target.value)}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Stores</option>
-                {uniqueStores.filter(s => s !== "All").map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Store Format Filter (Draft) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Format</label>
-              <select
-                value={tempStoreFormat}
-                onChange={(e) => setTempStoreFormat(e.target.value)}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Formats</option>
-                {uniqueStoreFormats.filter(sf => sf !== "All").map((fmt) => (
-                  <option key={fmt} value={fmt}>{fmt}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Product Category Filter (Draft) */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product Category</label>
-              <select
-                value={tempCategory}
-                onChange={(e) => setTempCategory(e.target.value)}
-                className="w-full bg-[#11141b] border border-slate-800 hover:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="All">All Categories</option>
-                {uniqueCategories.filter(cat => cat !== "All").map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
-              <span className="font-semibold">Active Filter Bounds:</span>
-              <span className="bg-[#11141b] px-2 py-0.5 rounded border border-slate-800 text-slate-300">
-                Date: {selectedWeek}
-              </span>
-              {(selectedRegion !== "All" || selectedCity !== "All" || selectedStore !== "All" || selectedStoreFormat !== "All" || selectedCategory !== "All") ? (
-                <>
-                  {selectedRegion !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Reg: {selectedRegion}</span>}
-                  {selectedCity !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">City: {selectedCity}</span>}
-                  {selectedStore !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Store: {selectedStore}</span>}
-                  {selectedStoreFormat !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Fmt: {selectedStoreFormat}</span>}
-                  {selectedCategory !== "All" && <span className="bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded border border-indigo-500/15">Cat: {selectedCategory}</span>}
-                </>
-              ) : (
-                <span className="text-slate-500 italic">No static dimensions active. Showing overall records.</span>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                setSelectedRegion(tempRegion);
-                setSelectedCity(tempCity);
-                setSelectedStore(tempStore);
-                setSelectedStoreFormat(tempStoreFormat);
-                setSelectedCategory(tempCategory);
-                setCurrentPage(1);
-              }}
-              className="flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer shadow-lg shadow-indigo-950/20 transition-all border border-indigo-500/20 uppercase tracking-wider"
-            >
-              <Check className="w-3.5 h-3.5" />
-              Apply Filters
-            </button>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Main Grid: Bento Dashboard Arrangement */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1498,115 +1502,193 @@ export default function App() {
           </div>
 
           {/* AI Strategic Intelligence Advisor Panel */}
-          <div className="bg-[#161a23] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Decision Suite</span>
-                <h2 className="text-md font-bold text-white flex items-center gap-2 font-display">
-                  <Sparkles className="w-4.5 h-4.5 text-indigo-400" />
-                  Gemini AI Advisor
-                </h2>
+          {salesRecords.length > 0 && (
+            <div className="bg-[#161a23] rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Decision Suite</span>
+                  <h2 className="text-md font-bold text-white flex items-center gap-2 font-display">
+                    <Sparkles className="w-4.5 h-4.5 text-indigo-400" />
+                    Gemini AI Advisor
+                  </h2>
+                </div>
+                <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-semibold">
+                  Flash 3.5
+                </span>
               </div>
-              <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full font-semibold">
-                Flash 3.5
-              </span>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Consolidate compiled sales transactions and generate strategic performance reviews with our retail intelligence agent.
+              </p>
+
+              {/* Custom Query Request Input */}
+              <div className="flex items-center gap-2 border border-slate-800 rounded-xl p-1.5 focus-within:border-indigo-500 transition-all bg-[#11141b]">
+                <input
+                  type="text"
+                  placeholder={isDemoMode ? "Generate performance review..." : "Ask specific metrics, trends..."}
+                  disabled={isAnalyzing || salesRecords.length === 0}
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && customPrompt.trim() && triggerAIAnalysis(salesRecords, customPrompt)}
+                  className="w-full bg-transparent px-2 py-1 text-xs outline-none text-slate-200 placeholder-slate-500 disabled:cursor-not-allowed"
+                />
+                <button
+                  onClick={() => customPrompt.trim() && triggerAIAnalysis(salesRecords, customPrompt)}
+                  disabled={isAnalyzing || !customPrompt.trim() || salesRecords.length === 0}
+                  className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Standard Review Trigger Button */}
+              {!aiAnalysis && !isAnalyzing && (
+                <button
+                  onClick={() => triggerAIAnalysis(salesRecords)}
+                  disabled={salesRecords.length === 0}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Analyze Sales Performance
+                </button>
+              )}
+
+              {/* AI Advisor Response Area */}
+              <div className="mt-1">
+                <AnimatePresence mode="wait">
+                  {isAnalyzing ? (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col items-center justify-center py-10 text-center gap-3"
+                    >
+                      <RefreshCw className="w-7 h-7 text-indigo-400 animate-spin" />
+                      <div>
+                        <p className="text-xs font-semibold text-slate-300">Consulting AI Advisor...</p>
+                        <p className="text-[10px] text-slate-500 mt-1 max-w-[200px] mx-auto animate-pulse">
+                          {loadingStep}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : analysisError ? (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex gap-2.5 text-xs text-red-400"
+                    >
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
+                      <div>
+                        <p className="font-bold">Advisor Off-line</p>
+                        <p className="mt-1 text-[11px] leading-relaxed opacity-90">{analysisError}</p>
+                      </div>
+                    </motion.div>
+                  ) : aiAnalysis ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-[#11141b]/50 border border-slate-800 rounded-xl p-4 max-h-[350px] overflow-y-auto"
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-white mb-3 border-b border-slate-800 pb-2 font-display">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        Gemini Retail SWOT Report
+                      </div>
+                      <div className="prose prose-sm text-slate-300">
+                        {renderAIResponse(aiAnalysis)}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <div className="text-center py-6 text-slate-500 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center gap-1">
+                      <HelpCircle className="w-5 h-5 text-slate-600" />
+                      <p className="text-[10px]">No active advisory insights loaded.</p>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
-
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Consolidate compiled sales transactions and generate strategic performance reviews with our retail intelligence agent.
-            </p>
-
-            {/* Custom Query Request Input */}
-            <div className="flex items-center gap-2 border border-slate-800 rounded-xl p-1.5 focus-within:border-indigo-500 transition-all bg-[#11141b]">
-              <input
-                type="text"
-                placeholder={isDemoMode ? "Generate performance review..." : "Ask specific metrics, trends..."}
-                disabled={isAnalyzing || salesRecords.length === 0}
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && customPrompt.trim() && triggerAIAnalysis(salesRecords, customPrompt)}
-                className="w-full bg-transparent px-2 py-1 text-xs outline-none text-slate-200 placeholder-slate-500 disabled:cursor-not-allowed"
-              />
-              <button
-                onClick={() => customPrompt.trim() && triggerAIAnalysis(salesRecords, customPrompt)}
-                disabled={isAnalyzing || !customPrompt.trim() || salesRecords.length === 0}
-                className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 transition-all cursor-pointer flex items-center justify-center flex-shrink-0"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Standard Review Trigger Button */}
-            {!aiAnalysis && !isAnalyzing && (
-              <button
-                onClick={() => triggerAIAnalysis(salesRecords)}
-                disabled={salesRecords.length === 0}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Analyze Sales Performance
-              </button>
-            )}
-
-            {/* AI Advisor Response Area */}
-            <div className="mt-1">
-              <AnimatePresence mode="wait">
-                {isAnalyzing ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center justify-center py-10 text-center gap-3"
-                  >
-                    <RefreshCw className="w-7 h-7 text-indigo-400 animate-spin" />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-300">Consulting AI Advisor...</p>
-                      <p className="text-[10px] text-slate-500 mt-1 max-w-[200px] mx-auto animate-pulse">
-                        {loadingStep}
-                      </p>
-                    </div>
-                  </motion.div>
-                ) : analysisError ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex gap-2.5 text-xs text-red-400"
-                  >
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Advisor Off-line</p>
-                      <p className="mt-1 text-[11px] leading-relaxed opacity-90">{analysisError}</p>
-                    </div>
-                  </motion.div>
-                ) : aiAnalysis ? (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-[#11141b]/50 border border-slate-800 rounded-xl p-4 max-h-[350px] overflow-y-auto"
-                  >
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-white mb-3 border-b border-slate-800 pb-2 font-display">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      Gemini Retail SWOT Report
-                    </div>
-                    <div className="prose prose-sm text-slate-300">
-                      {renderAIResponse(aiAnalysis)}
-                    </div>
-                  </motion.div>
-                ) : (
-                  <div className="text-center py-6 text-slate-500 border border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center gap-1">
-                    <HelpCircle className="w-5 h-5 text-slate-600" />
-                    <p className="text-[10px]">No active advisory insights loaded.</p>
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* RIGHT COLUMN: Key Metrics & Data Dashboard (Span 8) */}
         <section className="lg:col-span-8 flex flex-col gap-6">
-          
-          {/* Demo Alert Box */}
+          {salesRecords.length === 0 ? (
+            <div className="bg-[#161a23] rounded-2xl border border-slate-800 p-8 shadow-xl flex flex-col items-center justify-center text-center min-h-[500px]">
+              <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-950/20">
+                <FileSpreadsheet className="w-8 h-8" />
+              </div>
+              
+              <h2 className="text-xl font-bold text-white tracking-tight font-display mb-2">
+                Awaiting Sales Data Ingestion
+              </h2>
+              <p className="text-xs text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
+                Connect your business intelligence ecosystem. Upload or drag-and-drop your store sales, orders, and returns spreadsheet to unlock full interactive visualizations, filters, and SWOT advice.
+              </p>
+
+              <div className="w-full max-w-xl grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                <div className="bg-[#11141b] border border-slate-800/80 p-4.5 rounded-xl flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-mono">
+                    1
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Download Template</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Click the "Download Sample Sheet" button above to obtain a pre-formatted template.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#11141b] border border-slate-800/80 p-4.5 rounded-xl flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-mono">
+                    2
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Ingest Files</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Drop one or more .xlsx worksheets into the Source Pipeline to load your records.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#11141b] border border-slate-800/80 p-4.5 rounded-xl flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-mono">
+                    3
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Map & Verify</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Confirm or adjust detected column headers to ensure correct metric parsing.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-[#11141b] border border-slate-800/80 p-4.5 rounded-xl flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-[#6366f1]/20 border border-[#6366f1]/30 text-indigo-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-mono animate-pulse">
+                    4
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wide">Explore Dashboard</h4>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal">
+                      Submit to instantly populate KPI metrics, Pareto charts, regional trends, and Gemini AI reports!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick action button for demo */}
+              <div className="mt-8 flex items-center gap-3">
+                <span className="text-[11px] text-slate-500">Want to see how it works?</span>
+                <button
+                  onClick={handleLoadDemoData}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/25 text-[11px] font-semibold transition-all cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Load Sandbox Demo Data
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Demo Alert Box */}
           {isDemoMode && (
             <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
               <Info className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
@@ -2548,6 +2630,8 @@ export default function App() {
             </div>
 
           </div>
+          </>
+          )}
         </section>
       </main>
     </div>
