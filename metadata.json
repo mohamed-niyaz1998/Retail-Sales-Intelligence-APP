@@ -1,0 +1,6 @@
+{
+  "name": "Retail Sales Analyzer",
+  "description": "An interactive, intelligent dashboard for analyzing retail sales data from uploaded Excel files, complete with AI-powered performance insights and sales predictions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
