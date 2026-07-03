@@ -13,8 +13,11 @@ export interface SalesRecord {
   city: string;
   store: string;
   storeFormat: string;
-  discountRate: number; // Decimal (0.0 to 1.0)
+  discountRate: number; // Percentage calculated as (discount_amount / gross_sales) * 100
   returnAmt: number; // Return refund amount
+  nat_sales: number; // Net sales calculated from 'nat_sales' column directly
+  gross_sales: number; // Gross sales
+  discount_amount: number; // Discount amount
 }
 
 export interface ColumnMapping {
@@ -31,6 +34,9 @@ export interface ColumnMapping {
   city: string;
   store: string;
   storeFormat: string;
+  nat_sales: string;
+  gross_sales: string;
+  discount_amount: string;
 }
 
 export function getISOWeekString(dateStr: string): string {
@@ -127,9 +133,14 @@ export function getMockSalesData(): SalesRecord[] {
     const profit = Math.round(sales * margin * 100) / 100;
     
     // Simulate discount rate and return amount
-    const discountRate = Math.random() < 0.35 ? [0.05, 0.10, 0.15, 0.20][Math.floor(Math.random() * 4)] : 0;
+    const discountRateFraction = Math.random() < 0.35 ? [0.05, 0.10, 0.15, 0.20][Math.floor(Math.random() * 4)] : 0;
     const isReturned = Math.random() < 0.06;
     const returnAmt = isReturned ? Math.round(sales * (0.4 + Math.random() * 0.6) * 100) / 100 : 0;
+
+    const gross_sales = sales;
+    const discount_amount = Math.round(gross_sales * discountRateFraction * 100) / 100;
+    const discountRate = gross_sales > 0 ? (discount_amount / gross_sales) * 100 : 0;
+    const nat_sales = Math.max(0, gross_sales - returnAmt);
 
     data.push({
       id: `DEMO-${String(currentId++).padStart(4, "0")}`,
@@ -145,7 +156,10 @@ export function getMockSalesData(): SalesRecord[] {
       store,
       storeFormat,
       discountRate,
-      returnAmt
+      returnAmt,
+      nat_sales,
+      gross_sales,
+      discount_amount
     });
   }
 
@@ -168,7 +182,10 @@ export function detectColumnMapping(headers: string[]): ColumnMapping {
     week: "",
     city: "",
     store: "",
-    storeFormat: ""
+    storeFormat: "",
+    nat_sales: "",
+    gross_sales: "",
+    discount_amount: ""
   };
 
   const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -221,12 +238,24 @@ export function detectColumnMapping(headers: string[]): ColumnMapping {
       mapping.city = h;
     }
     // Store
-    else if (!mapping.store && ((ch.includes("store") && !ch.includes("format") && !ch.includes("region")) || ch === "shop" || ch === "outlet" || ch === "branch")) {
+    else if (!mapping.store && ((ch.includes("store") && !ch.includes("format") && !ch.includes("region")) || h === "shop" || h === "outlet" || h === "branch")) {
       mapping.store = h;
     }
     // Store Format
     else if (!mapping.storeFormat && (ch.includes("format") || ch.includes("channel") || ch.includes("storetype") || ch.includes("store_format"))) {
       mapping.storeFormat = h;
+    }
+    // nat_sales column (net sales)
+    else if (!mapping.nat_sales && (ch === "natsales" || ch === "nat_sales" || ch.includes("natsales") || ch.includes("nat_sales") || ch.includes("netsales") || ch.includes("net_sales"))) {
+      mapping.nat_sales = h;
+    }
+    // gross_sales column
+    else if (!mapping.gross_sales && (ch === "grosssales" || ch === "gross_sales" || ch.includes("grosssales") || ch.includes("gross_sales") || ch.includes("gross_amt") || ch.includes("grossamt"))) {
+      mapping.gross_sales = h;
+    }
+    // discount_amount column
+    else if (!mapping.discount_amount && (ch === "discountamount" || ch === "discount_amount" || ch.includes("discountamount") || ch.includes("discount_amount") || ch.includes("discount_amt") || ch.includes("discountamt"))) {
+      mapping.discount_amount = h;
     }
   });
 
@@ -238,12 +267,26 @@ export function detectColumnMapping(headers: string[]): ColumnMapping {
   if (!mapping.quantity) mapping.quantity = headers.find(h => clean(h).match(/qty|quant|unit/i)) || headers[4] || "";
   if (!mapping.profit) mapping.profit = headers.find(h => clean(h).match(/prof|margin|earn/i)) || headers[5] || "";
   if (!mapping.region) mapping.region = headers.find(h => clean(h).match(/reg|store|loc|city/i)) || headers[6] || "";
-  if (!mapping.discountRate) mapping.discountRate = headers.find(h => clean(h).match(/disc|promo/i)) || "";
+  if (!mapping.discountRate) mapping.discountRate = headers.find(h => clean(h).match(/disc|promo|rate/i)) || "";
   if (!mapping.returnAmt) mapping.returnAmt = headers.find(h => clean(h).match(/ret|ref/i)) || "";
   if (!mapping.week) mapping.week = headers.find(h => clean(h).match(/wk|week/i)) || "";
   if (!mapping.city) mapping.city = headers.find(h => clean(h).match(/city|town/i)) || "";
   if (!mapping.store) mapping.store = headers.find(h => clean(h).match(/store|outlet|shop|branch/i) && !clean(h).match(/format|reg/i)) || "";
   if (!mapping.storeFormat) mapping.storeFormat = headers.find(h => clean(h).match(/format|type|channel/i)) || "";
+  
+  // Specific fallbacks for net sales, gross sales, and discount amount
+  if (!mapping.nat_sales) mapping.nat_sales = headers.find(h => {
+    const ch = clean(h);
+    return ch === "natsales" || ch === "nat_sales" || ch.includes("natsales") || ch.includes("nat_sales") || ch.includes("netsales") || ch.includes("net_sales");
+  }) || "";
+  if (!mapping.gross_sales) mapping.gross_sales = headers.find(h => {
+    const ch = clean(h);
+    return ch === "grosssales" || ch === "gross_sales" || ch.includes("grosssales") || ch.includes("gross_sales") || ch.includes("gross_amt") || ch.includes("grossamt");
+  }) || "";
+  if (!mapping.discount_amount) mapping.discount_amount = headers.find(h => {
+    const ch = clean(h);
+    return ch === "discountamount" || ch === "discount_amount" || ch.includes("discountamount") || ch.includes("discount_amount") || ch.includes("discount_amt") || ch.includes("discountamt");
+  }) || "";
 
   return mapping;
 }
@@ -278,17 +321,37 @@ export function parseSheetData(rawData: any[], mapping: ColumnMapping, fileIndex
     // If profit column isn't mapped or missing, assume 30% margin as estimation
     const profit = isNaN(profitVal) ? Math.round(sales * 0.3 * 100) / 100 : Math.round(profitVal * 100) / 100;
 
-    // Parse or generate discount rate
-    const discountVal = parseFloat(row[mapping.discountRate]);
-    const discountRate = !isNaN(discountVal) 
-      ? (discountVal > 1 ? discountVal / 100 : discountVal) 
-      : (((idx * 7) % 10 < 3) ? (((idx * 5) % 4 + 1) * 0.05) : 0);
+    // Parse gross_sales (fallback to sales)
+    const grossSalesVal = parseFloat(row[mapping.gross_sales || ""]);
+    const gross_sales = !isNaN(grossSalesVal) ? Math.round(grossSalesVal * 100) / 100 : sales;
 
     // Parse or generate return amount
     const returnVal = parseFloat(row[mapping.returnAmt]);
     const returnAmt = !isNaN(returnVal) 
       ? Math.round(returnVal * 100) / 100 
       : (((idx * 13) % 20 === 0) ? Math.round(sales * (0.3 + ((idx % 5) * 0.15)) * 100) / 100 : 0);
+
+    // Parse or generate discount rate / discount amount
+    const discountAmountVal = parseFloat(row[mapping.discount_amount || ""]);
+    let discount_amount = 0;
+    
+    if (!isNaN(discountAmountVal)) {
+      discount_amount = Math.round(discountAmountVal * 100) / 100;
+    } else {
+      // Simulate discount_amount based on mapped/simulated discountRate
+      const discountVal = parseFloat(row[mapping.discountRate]);
+      const discountRateDec = !isNaN(discountVal) 
+        ? (discountVal > 1 ? discountVal / 100 : discountVal) 
+        : (((idx * 7) % 10 < 3) ? (((idx * 5) % 4 + 1) * 0.05) : 0);
+      discount_amount = Math.round(gross_sales * discountRateDec * 100) / 100;
+    }
+
+    // To calculate discount_rate, use this formula: (discount_amount/gross_sales)*100
+    const discountRate = gross_sales > 0 ? (discount_amount / gross_sales) * 100 : 0;
+
+    // Parse or generate direct Net Sales (nat_sales)
+    const natSalesVal = parseFloat(row[mapping.nat_sales || ""]);
+    const nat_sales = !isNaN(natSalesVal) ? Math.round(natSalesVal * 100) / 100 : Math.max(0, gross_sales - returnAmt);
 
     const region = String(row[mapping.region] || "HQ Store");
 
@@ -345,7 +408,10 @@ export function parseSheetData(rawData: any[], mapping: ColumnMapping, fileIndex
       store,
       storeFormat,
       discountRate,
-      returnAmt
+      returnAmt,
+      nat_sales,
+      gross_sales,
+      discount_amount
     };
   });
 }
@@ -385,9 +451,14 @@ export function downloadSampleExcel() {
     const revenue = Math.round(prod.price * qty * 100) / 100;
     const profit = Math.round((revenue - (prod.cost * qty)) * 100) / 100;
 
-    const discountRate = Math.random() < 0.35 ? [0.05, 0.10, 0.15, 0.20][Math.floor(Math.random() * 4)] : 0;
+    const discountRateFraction = Math.random() < 0.35 ? [0.05, 0.10, 0.15, 0.20][Math.floor(Math.random() * 4)] : 0;
     const isReturned = Math.random() < 0.06;
     const returnAmt = isReturned ? Math.round(revenue * (0.4 + Math.random() * 0.6) * 100) / 100 : 0;
+
+    const gross_sales = revenue;
+    const discount_amount = Math.round(gross_sales * discountRateFraction * 100) / 100;
+    const discountRate = gross_sales > 0 ? (discount_amount / gross_sales) * 100 : 0;
+    const nat_sales = Math.max(0, gross_sales - returnAmt);
 
     rows.push({
       "Invoice Date": orderDate.toISOString().split("T")[0],
@@ -398,7 +469,10 @@ export function downloadSampleExcel() {
       "Net Profit": profit,
       "Store Region": region,
       "Discount Rate": discountRate,
-      "Return Amount": returnAmt
+      "Return Amount": returnAmt,
+      "gross_sales": gross_sales,
+      "discount_amount": discount_amount,
+      "nat_sales": nat_sales
     });
   }
 

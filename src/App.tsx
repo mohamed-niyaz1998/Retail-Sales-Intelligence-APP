@@ -161,7 +161,10 @@ export default function App() {
     week: "",
     city: "",
     store: "",
-    storeFormat: ""
+    storeFormat: "",
+    nat_sales: "",
+    gross_sales: "",
+    discount_amount: ""
   });
   const [showMappingConfig, setShowMappingConfig] = useState<boolean>(false);
 
@@ -541,14 +544,18 @@ export default function App() {
   });
 
   // Calculate iterated KPI metrics based on baseFilteredRecords
-  const totalGrossSales = baseFilteredRecords.reduce((sum, r) => sum + r.sales, 0);
+  const totalGrossSales = baseFilteredRecords.reduce((sum, r) => sum + (r.gross_sales || r.sales || 0), 0);
   const totalReturnsVal = baseFilteredRecords.reduce((sum, r) => sum + (r.returnAmt || 0), 0);
-  const netSalesVal = Math.max(0, totalGrossSales - totalReturnsVal);
+  
+  // For net sales KPI, calculate/sum it by using only the 'nat_sales' column. Dont do additional calculations.
+  const netSalesVal = baseFilteredRecords.reduce((sum, r) => sum + (r.nat_sales || 0), 0);
+  
   const targetAchievedVal = salesTarget > 0 ? (netSalesVal / salesTarget) * 100 : 0;
   const avgOrderVal = baseFilteredRecords.length > 0 ? netSalesVal / baseFilteredRecords.length : 0;
   const returnRateVal = netSalesVal > 0 ? (totalReturnsVal / netSalesVal) * 100 : 0;
   
-  const totalDiscountsVal = baseFilteredRecords.reduce((sum, r) => sum + (r.sales * (r.discountRate || 0)), 0);
+  // To calculate discount_rate, use this formula: (discount_amount/gross_sales)*100
+  const totalDiscountsVal = baseFilteredRecords.reduce((sum, r) => sum + (r.discount_amount || 0), 0);
   const avgDiscountRateVal = totalGrossSales > 0 ? (totalDiscountsVal / totalGrossSales) * 100 : 0;
 
   // Map backward-compatible values for standard display components
@@ -1613,6 +1620,42 @@ export default function App() {
                       {availableHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-slate-500 mb-0.5 font-semibold uppercase">Net Sales Column (nat_sales)</label>
+                    <select
+                      value={columnMapping.nat_sales}
+                      onChange={(e) => setColumnMapping({ ...columnMapping, nat_sales: e.target.value })}
+                      className="w-full bg-[#11141b] border border-slate-800 rounded p-1 text-slate-200 outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Auto-Simulate Net Sales (nat_sales) --</option>
+                      {availableHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 mb-0.5 font-semibold uppercase">Gross Sales Column</label>
+                    <select
+                      value={columnMapping.gross_sales}
+                      onChange={(e) => setColumnMapping({ ...columnMapping, gross_sales: e.target.value })}
+                      className="w-full bg-[#11141b] border border-slate-800 rounded p-1 text-slate-200 outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Fallback to Revenue column --</option>
+                      {availableHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-500 mb-0.5 font-semibold uppercase">Discount Amount Column</label>
+                    <select
+                      value={columnMapping.discount_amount}
+                      onChange={(e) => setColumnMapping({ ...columnMapping, discount_amount: e.target.value })}
+                      className="w-full bg-[#11141b] border border-slate-800 rounded p-1 text-slate-200 outline-none focus:border-indigo-500"
+                    >
+                      <option value="">-- Auto-Calculate from Rate --</option>
+                      {availableHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -1860,7 +1903,7 @@ export default function App() {
                   ${netSalesVal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-[9px] text-slate-500 mt-0.5 truncate">
-                  Gross: ${totalGrossSales.toLocaleString(undefined, { maximumFractionDigits: 0 })} | Ret: ${totalReturnsVal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  Direct sum of 'nat_sales' column
                 </p>
               </div>
             </div>
@@ -1985,7 +2028,7 @@ export default function App() {
                   {avgDiscountRateVal.toFixed(1)}%
                 </p>
                 <p className="text-[9px] text-slate-500 mt-0.5 truncate">
-                  Promo discount: ${totalDiscountsVal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  (discount_amount / gross_sales) * 100
                 </p>
               </div>
             </div>
