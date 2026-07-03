@@ -20,11 +20,131 @@ import {
 // Bright, high-end theme-friendly colors for dark-mode Bento Grid
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6", "#3b82f6"];
 
+interface SensitiveInfoResult {
+  hasSensitive: boolean;
+  reason: string;
+}
+
+function checkSensitiveInfo(json: any[]): SensitiveInfoResult {
+  // 1. Password or direct secret key header check
+  const passwordKeyPattern = /password|passcode|passwd|pwd|secret_key|secretkey/i;
+  // 2. Card header patterns
+  const cardKeyPattern = /credit\s*card|debit\s*card|card\s*number|cvv|cvc|card\s*pin|cc\s*num/i;
+  // 3. Bank header patterns
+  const bankKeyPattern = /bank\s*password|bank\s*passcode|bank\s*pin|routing\s*number|iban|swift\s*code|swift|swiftcode|bic|biccode/i;
+  // 4. SSN header patterns
+  const ssnKeyPattern = /ssn|social\s*security|national\s*id/i;
+
+  const creditCardRegex = /\b(?:4[0-9]{12}(?:[0-9]{3})?|[25][1-7][0-9]{14}|6(?:011|5[0-9][0-9])[0-9]{12}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|(?:2131|1800|35\d{3})\d{11})\b/;
+  const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/;
+
+  // Luhn algorithm helper
+  const isLuhnValid = (digitsStr: string): boolean => {
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = digitsStr.length - 1; i >= 0; i--) {
+      let digit = parseInt(digitsStr.charAt(i), 10);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
+  };
+
+  for (const row of json) {
+    if (!row || typeof row !== "object") continue;
+
+    for (const key of Object.keys(row)) {
+      const lowerKey = key.toLowerCase();
+
+      // Check header sensitivity
+      if (passwordKeyPattern.test(lowerKey)) {
+        return {
+          hasSensitive: true,
+          reason: `Detected password/passcode field under column "${key}"`
+        };
+      }
+      if (cardKeyPattern.test(lowerKey)) {
+        return {
+          hasSensitive: true,
+          reason: `Detected potential credit/debit card details under column "${key}"`
+        };
+      }
+      if (bankKeyPattern.test(lowerKey)) {
+        return {
+          hasSensitive: true,
+          reason: `Detected sensitive bank account credentials/routing info under column "${key}"`
+        };
+      }
+      if (ssnKeyPattern.test(lowerKey)) {
+        return {
+          hasSensitive: true,
+          reason: `Detected Social Security or National Identity (SSN/ID) under column "${key}"`
+        };
+      }
+
+      // Check row values
+      const val = row[key];
+      if (val !== null && val !== undefined) {
+        const valStr = String(val).trim();
+        if (valStr.length === 0) continue;
+
+        // Skip barcode/SKU/product keys for value-based credit card/SSN checking to prevent false positives
+        const isSkuOrIdColumn = /sku|barcode|ean|upc|product\s*id|item\s*id|order\s*id|id\b/i.test(lowerKey);
+
+        if (!isSkuOrIdColumn) {
+          // Check for credit card digits (ignoring spaces/hyphens)
+          const digitsOnly = valStr.replace(/[^0-9]/g, "");
+          if (digitsOnly.length >= 13 && digitsOnly.length <= 19) {
+            // Check if it looks like a card number and passes Luhn check
+            if (isLuhnValid(digitsOnly)) {
+              return {
+                hasSensitive: true,
+                reason: `Detected a value matching a credit/debit card number pattern under column "${key}"`
+              };
+            }
+          }
+
+          // Check SSN format (###-##-####)
+          if (ssnRegex.test(valStr)) {
+            return {
+              hasSensitive: true,
+              reason: `Detected a value matching standard Social Security Number pattern under column "${key}"`
+            };
+          }
+        }
+
+        // Generic text-based password indicators
+        const lowerVal = valStr.toLowerCase();
+        if (
+          lowerVal.includes("password:") ||
+          lowerVal.includes("passcode:") ||
+          lowerVal.includes("bank pin:") ||
+          lowerVal.includes("card password:") ||
+          lowerVal.includes("account password:")
+        ) {
+          return {
+            hasSensitive: true,
+            reason: `Detected credential or password strings in the cell content`
+          };
+        }
+      }
+    }
+  }
+
+  return { hasSensitive: false, reason: "" };
+}
+
 export default function App() {
   // State variables
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([]);
   const [loadedFiles, setLoadedFiles] = useState<{ name: string; size: string; rows: number; rawJson: any[] }[]>([]);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [sensitiveInfoWarning, setSensitiveInfoWarning] = useState<{ fileName: string; reason: string } | null>(null);
+  const [showSensitiveModal, setShowSensitiveModal] = useState<boolean>(false);
   
   // Header detection & column mapping states
   const [availableHeaders, setAvailableHeaders] = useState<string[]>([]);
@@ -130,6 +250,17 @@ export default function App() {
 
           if (json.length === 0) {
             alert(`The sheet in file ${file.name} is empty.`);
+            return;
+          }
+
+          // Check for sensitive information
+          const sensitivity = checkSensitiveInfo(json);
+          if (sensitivity.hasSensitive) {
+            setSensitiveInfoWarning({
+              fileName: file.name,
+              reason: sensitivity.reason
+            });
+            setShowSensitiveModal(true);
             return;
           }
 
@@ -2634,6 +2765,73 @@ export default function App() {
           )}
         </section>
       </main>
+
+      {/* Sensitive Data Blocked Warning Modal */}
+      <AnimatePresence>
+        {showSensitiveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-[#161a23] border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-black/80 flex flex-col items-center text-center gap-4 relative overflow-hidden"
+            >
+              {/* Decorative top red gradient bar */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-600 via-amber-500 to-red-600" />
+
+              <div className="w-14 h-14 bg-red-500/10 border border-red-500/20 text-red-400 rounded-full flex items-center justify-center mt-2 animate-bounce">
+                <AlertCircle className="w-7 h-7" />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-white tracking-tight font-display">
+                  Sensitive Information Detected
+                </h3>
+                <p className="text-xs text-red-400 font-semibold tracking-wide uppercase">
+                  Upload Terminated
+                </p>
+              </div>
+
+              <div className="bg-[#11141b] border border-slate-800/80 rounded-xl p-4 w-full text-left space-y-3">
+                <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                  No sensitive information is permitted to be uploaded.
+                </p>
+                {sensitiveInfoWarning && (
+                  <div className="text-[11px] text-slate-400 space-y-1.5 border-t border-slate-800/60 pt-2.5">
+                    <div>
+                      <span className="font-bold text-slate-500 uppercase tracking-wider block text-[9px]">Target File:</span>
+                      <span className="font-mono text-indigo-400 font-semibold">{sensitiveInfoWarning.fileName}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-500 uppercase tracking-wider block text-[9px]">Reason:</span>
+                      <span className="font-medium text-slate-200">{sensitiveInfoWarning.reason}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed px-1">
+                For security and privacy reasons, please ensure uploaded spreadsheets do not contain passwords, bank account passwords, bank card numbers, CVVs, pins, or routing numbers. Please sanitize your data and try again.
+              </p>
+
+              <button
+                onClick={() => {
+                  setShowSensitiveModal(false);
+                  setSensitiveInfoWarning(null);
+                }}
+                className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all duration-200 cursor-pointer shadow-lg shadow-red-950/20 uppercase tracking-wider border border-red-500/20"
+              >
+                Acknowledge & Dismiss
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
